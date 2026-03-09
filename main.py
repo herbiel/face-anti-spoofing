@@ -76,16 +76,21 @@ def run_image(args, model, config, detector, device):
         raise ValueError(f"Failed to load image: {args.source}")
 
     faces = detector.detect(image)
-    faces = [f for f in faces if f["confidence"] >= args.confidence]
+    faces = [f for f in faces if f.confidence >= args.confidence]
 
     if not faces:
         print("No faces detected.")
-        return
+        return []
 
+    results = []
     print(f"Found {len(faces)} face(s)")
     for i, face in enumerate(faces):
-        result = predict(image, face["bbox"], model, config, device)
-        draw_bbox(image, result["bbox"], result["label"], result["score"])
+        result = predict(image, face.bbox, model, config, device)
+        results.append({"label": result["label"], "score": result["score"]})
+        
+        if args.view or args.output:
+            draw_bbox(image, result["bbox"], result["label"], result["score"])
+        
         print(f"  Face {i + 1}: {result['label']} (score={result['score']:.2f})")
 
     if args.output:
@@ -96,6 +101,8 @@ def run_image(args, model, config, detector, device):
         cv2.imshow("Anti-Spoofing", image)
         cv2.waitKey(0)
         cv2.destroyAllWindows()
+        
+    return results
 
 
 def run_webcam(args, model, config, detector, device):
@@ -122,9 +129,9 @@ def run_webcam(args, model, config, detector, device):
 
         faces = detector.detect(frame)
         for face in faces:
-            if face["confidence"] < args.confidence:
+            if face.confidence < args.confidence:
                 continue
-            result = predict(frame, face["bbox"], model, config, device)
+            result = predict(frame, face.bbox, model, config, device)
             draw_bbox(frame, result["bbox"], result["label"], result["score"])
 
         if writer:
@@ -145,9 +152,6 @@ def run_webcam(args, model, config, detector, device):
 def main():
     args = parse_args()
 
-    if not args.view and not args.output:
-        raise ValueError("At least one of --view or --output must be provided")
-
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model, config = load_model(args.weight, args.model, device)
     detector = RetinaFace()
@@ -156,7 +160,10 @@ def main():
     is_image = args.source.lower().endswith((".jpg", ".jpeg", ".png", ".bmp", ".webp"))
 
     if is_image:
-        run_image(args, model, config, detector, device)
+        results = run_image(args, model, config, detector, device)
+        # 仅为方便其他程序解析，可以以 JSON 格式打印输出：
+        # import json
+        # print("JSON_RESULT:", json.dumps(results))
     else:
         run_webcam(args, model, config, detector, device)
 
