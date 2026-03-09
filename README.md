@@ -16,22 +16,38 @@ Minimal inference utilities for silent face anti-spoofing using **MiniFASNetV1SE
 
 ## Installation
 
+This project now uses `uv` for dependency management, replacing `requirements.txt`.
+
 ```bash
-pip install -r requirements.txt
+# Install for CPU-only instances (Highly recommended for Linux deployments to save ~2GB CUDA binaries)
+uv sync --extra cpu
+
+# Or install for GPU instances (CUDA)
+uv sync --extra gpu
 ```
 
 ## Usage
 
+### FastAPI Background Service
+
+We now provide a standard REST API powered by FastAPI. 
+For detailed API usage and request formats, see [API Documentation](api_docs.md).
+For production deployment strategies (Gunicorn/Systemd), see [Deployment Guide](deployment_guide.md).
+
+```bash
+# Run the API server locally
+uv run uvicorn api:app --host 0.0.0.0 --port 8000
+```
 ### Image Inference
 
 ```bash
-python main.py --source assets/image.jpg --weight weights/MiniFASNetV2.pth --output result.jpg --view
+uv run main.py --source assets/image.jpg --weight weights/MiniFASNetV2.pth --output result.jpg --view
 ```
 
 ### Webcam Inference
 
 ```bash
-python main.py --source 0 --weight weights/MiniFASNetV2.pth --view
+uv run main.py --source 0 --weight weights/MiniFASNetV2.pth --view
 ```
 
 ### Options
