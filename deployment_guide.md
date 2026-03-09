@@ -74,8 +74,8 @@ After=network.target
 User=root
 # 将下面替换为你的实际项目路径
 WorkingDirectory=/path/to/face-anti-spoofing
-# 将下面替换为你项目中 .venv 的 uvicorn 的绝对路径
-ExecStart=/path/to/face-anti-spoofing/.venv/bin/uvicorn api:app --host 0.0.0.0 --port 8000
+# 使用 uv 运行。请确保将 /usr/local/bin/uv 替换为你服务器上 uv 的实际安装路径 (可通过 `which uv` 查询)
+ExecStart=/usr/local/bin/uv run uvicorn api:app --host 0.0.0.0 --port 8000
 Restart=always
 
 [Install]
