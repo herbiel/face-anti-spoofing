@@ -39,7 +39,7 @@
 
 **请求:**
 ```bash
-curl -X GET "http://127.0.0.1:8000/predict?source=/Users/habi/Documents/655_2.jpg"
+curl -X GET "https://facedetect.dodolame.com:8805/predict?source=/path/to/image.jpg"
 ```
 
 **响应 (`200 OK`):**
@@ -61,7 +61,7 @@ curl -X GET "http://127.0.0.1:8000/predict?source=/Users/habi/Documents/655_2.jp
 
 **请求:**
 ```bash
-curl -X GET "http://127.0.0.1:8000/predict?source=/path/to/landscape.jpg"
+curl -X GET "https://facedetect.dodolame.com:8805/predict?source=/path/to/landscape.jpg"
 ```
 
 **响应 (`200 OK`):**
@@ -77,7 +77,7 @@ curl -X GET "http://127.0.0.1:8000/predict?source=/path/to/landscape.jpg"
 
 **请求:**
 ```bash
-curl -X GET "http://127.0.0.1:8000/predict?source=bad_path_here"
+curl -X GET "https://facedetect.dodolame.com:8805/predict?source=bad_path_here"
 ```
 
 **响应 (`200 OK`):**
@@ -91,5 +91,5 @@ curl -X GET "http://127.0.0.1:8000/predict?source=bad_path_here"
 
 ## 其他说明
 
-- 默认情况下程序监听在 `http://0.0.0.0:8000`。
-- 因为服务由 FastAPI 强力驱动，您也可以在浏览器中访问 [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs) 来查看并测试交互式的 OpenAPI（Swagger）自动生成文档。
+- 默认情况下内部程序监听在 `http://127.0.0.1:8000`，并通过 HAProxy 代理到 `https://facedetect.dodolame.com:8805`。
+- 因为服务由 FastAPI 强力驱动，您也可以在浏览器中访问 [https://facedetect.dodolame.com:8805/docs](https://facedetect.dodolame.com:8805/docs) 来查看并测试交互式的 OpenAPI（Swagger）自动生成文档。
