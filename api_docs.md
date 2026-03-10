@@ -5,14 +5,14 @@
 ## 接口地址
 
 - **URL:** `/predict`
-- **Method:** `GET`
+- **Method:** `POST`
 - **Content-Type:** `application/json`
 
-## 请求参数 (Query Parameters)
+## 请求参数 (JSON Body)
 
 | 参数名 | 类型 | 必填 | 默认值 | 描述 |
 | :--- | :--- | :---: | :--- | :--- |
-| `source` | `string` | **是** | - | 本地图片文件的绝对路径或网络图片的 HTTP/HTTPS URL。 |
+| `sources` | `array of strings` | **是** | - | 包含一个或多个本地图片文件绝对路径，或网络 HTTP/HTTPS URL 的列表。 |
 | `confidence` | `float` | 否 | `0.5` | 人脸检测的置信度阈值。低于此值的人脸将被忽略。 |
 
 ## 响应结构
@@ -21,9 +21,17 @@
 
 | 字段名 | 类型 | 描述 |
 | :--- | :--- | :--- |
-| `code` | `int` | 业务状态码。`200` 表示检测正常执行完成，`500` 表示发生错误（如图片加载失败等）。 |
-| `faces` | `array` | 检测到的人脸列表。如果 `code` 为 500，或者图片中没有检测到人脸，则为空数组 `[]`。 |
-| `message`| `string` | 错误信息。当 `code` 为 200 时，该字段为空字符串 `""`；当 `code` 为 500 时，这里会包含具体的错误原因。 |
+| `code` | `int` | 顶层状态码。`200` 表示整个请求成功被服务器处理（即便某张图片加载失败，只要服务没崩溃，这仍是 200），`500` 表示发生系统级致命报错。 |
+| `results` | `array` | 每张图片的独立检测结果列表。 |
+| `message`| `string` | 顶层错误信息。 |
+
+**`results` 数组内部对象结构 (一张图片对应一个结果)：**
+
+| 字段名 | 类型 | 描述 |
+| :--- | :--- | :--- |
+| `source` | `string` | 该结果对应传入的图片路径或 URL。 |
+| `faces` | `array` | 检测到的人脸列表。如果 `error` 不为空，或者图片中没有检测到人脸，则为空数组 `[]`。 |
+| `error` | `string` | 单张图片的错误信息。成功加载和检测时为空字符串 `""`；抛错时（如加载失败）会包含具体原因，且不影响同批次其他图片的检测。 |
 
 **`faces` 数组内部对象结构：**
 
@@ -35,57 +43,81 @@
 
 ## 调用示例
 
-### 1. 成功检测 (本地图片)
+### 1. 成功检测多张图片
 
 **请求:**
 ```bash
-curl -X GET "https://facedetect.dodolame.com:8805/predict?source=/path/to/image.jpg"
+curl -X POST "https://facedetect.dodolame.com:8805/predict" \
+     -H "Content-Type: application/json" \
+     -d '{
+           "sources": [
+             "/path/to/image.jpg",
+             "https://raw.githubusercontent.com/yakhyo/face-anti-spoofing/main/assets/result_T1.jpg"
+           ],
+           "confidence": 0.5
+         }'
 ```
 
 **响应 (`200 OK`):**
 ```json
 {
   "code": 200,
-  "faces": [
+  "results": [
     {
-      "label": "Fake",
-      "score": 0.9998348951339722,
-      "bbox": [225, 539, 444, 657]
+      "source": "/path/to/image.jpg",
+      "faces": [
+        {
+          "label": "Fake",
+          "score": 0.9998348951339722,
+          "bbox": [225, 539, 444, 657]
+        }
+      ],
+      "error": ""
+    },
+    {
+      "source": "https://raw.githubusercontent.com/yakhyo/face-anti-spoofing/main/assets/result_T1.jpg",
+      "faces": [
+        {
+          "label": "Real",
+          "score": 0.9999817609786987,
+          "bbox": [120, 96, 171, 254]
+        }
+      ],
+      "error": ""
     }
   ],
   "message": ""
 }
 ```
 
-### 2. 成功检测，但未发现人脸
+### 2. 部分图片加载失败 (高鲁棒性容错机制)
+
+如果数组中的某一张图片路径错误或是损坏，API 不会整体崩溃报错，而是像下面这样，仅仅单独在对应的结果项中返回非空的 `error` 字段，同批次正常的图片将照旧出结果：
 
 **请求:**
 ```bash
-curl -X GET "https://facedetect.dodolame.com:8805/predict?source=/path/to/landscape.jpg"
+curl -X POST "https://facedetect.dodolame.com:8805/predict" \
+     -H "Content-Type: application/json" \
+     -d '{"sources": ["/path/to/landscape.jpg", "bad_path_here"]}'
 ```
 
 **响应 (`200 OK`):**
 ```json
 {
   "code": 200,
-  "faces": [],
+  "results": [
+    {
+      "source": "/path/to/landscape.jpg",
+      "faces": [],
+      "error": ""
+    },
+    {
+      "source": "bad_path_here",
+      "faces": [],
+      "error": "Failed to load image from local path: bad_path_here"
+    }
+  ],
   "message": ""
-}
-```
-
-### 3. 图片加载失败 (例如路径错误)
-
-**请求:**
-```bash
-curl -X GET "https://facedetect.dodolame.com:8805/predict?source=bad_path_here"
-```
-
-**响应 (`200 OK`):**
-```json
-{
-  "code": 500,
-  "faces": [],
-  "message": "Failed to load image from local path: bad_path_here"
 }
 ```
 

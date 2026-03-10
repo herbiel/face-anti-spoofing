@@ -32,10 +32,19 @@ class InferenceResult(BaseModel):
     score: float
     bbox: list[int]
 
-class InferenceResponse(BaseModel):
-    code: int
+class ImageResult(BaseModel):
+    source: str
     faces: list[InferenceResult]
+    error: str = ""
+
+class BatchInferenceResponse(BaseModel):
+    code: int
+    results: list[ImageResult]
     message: str = ""
+
+class PredictionRequest(BaseModel):
+    sources: list[str]
+    confidence: float = 0.5
 
 def load_image_from_source(source: str) -> np.ndarray:
     """Load an image from a local path or a URL."""
@@ -55,40 +64,60 @@ def load_image_from_source(source: str) -> np.ndarray:
             raise ValueError(f"Failed to load image from local path: {source}")
         return img
 
-@app.get("/predict", response_model=InferenceResponse)
-async def predict_anti_spoofing(
-    source: str = Query(..., description="Local file path or image URL"),
-    confidence: float = Query(0.5, description="Face detection confidence threshold")
-):
+@app.post("/predict", response_model=BatchInferenceResponse)
+async def predict_anti_spoofing(request: PredictionRequest):
     if model is None or detector is None:
-        return {"code": 500, "faces": [], "message": "Models not loaded properly."}
+        return {"code": 500, "results": [], "message": "Models not loaded properly."}
 
-    try:
-        # Load the image
-        image = load_image_from_source(source)
-        
-        # Detect faces
-        faces = detector.detect(image)
-        faces = [f for f in faces if f.confidence >= confidence]
-        
-        if not faces:
-            return {"code": 200, "faces": [], "message": ""}
+    batch_results = []
+    
+    for source in request.sources:
+        try:
+            # Load the image
+            image = load_image_from_source(source)
             
-        results = []
-        for face in faces:
-            result = predict(image, face.bbox, model, config, device)
-            results.append({
-                "label": result["label"],
-                "score": result["score"],
-                "bbox": result["bbox"]
+            # Detect faces
+            faces = detector.detect(image)
+            faces = [f for f in faces if f.confidence >= request.confidence]
+            
+            if not faces:
+                batch_results.append({
+                    "source": source,
+                    "faces": [],
+                    "error": ""
+                })
+                continue
+                
+            results = []
+            for face in faces:
+                result = predict(image, face.bbox, model, config, device)
+                results.append({
+                    "label": result["label"],
+                    "score": result["score"],
+                    "bbox": result["bbox"]
+                })
+                
+            batch_results.append({
+                "source": source,
+                "faces": results,
+                "error": ""
             })
             
-        return {"code": 200, "faces": results, "message": ""}
-        
-    except ValueError as ve:
-        return {"code": 500, "faces": [], "message": str(ve)}
-    except Exception as e:
-        return {"code": 500, "faces": [], "message": f"Internal server error: {str(e)}"}
+        except ValueError as ve:
+            batch_results.append({
+                "source": source,
+                "faces": [],
+                "error": str(ve)
+            })
+        except Exception as e:
+            batch_results.append({
+                "source": source,
+                "faces": [],
+                "error": f"Internal error: {str(e)}"
+            })
+
+    # Return 200 with the batch results.
+    return {"code": 200, "results": batch_results, "message": ""}
 
 if __name__ == "__main__":
     import uvicorn
