@@ -3,7 +3,7 @@ name = "face-anti-spoofing"
 version = "1.0.0"
 description = "Face Anti-Spoofing Inference using MiniFASNet"
 authors = [
-    { name = "Yakhyo", email = "yakhyo@example.com" }
+    { name = "Yakhyo", email = "[EMAIL_ADDRESS]" }
 ]
 readme = "README.md"
 requires-python = ">=3.10, <3.14"
